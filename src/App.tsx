@@ -1,9 +1,92 @@
 import { Race, races } from "./assets/f1";
-import { useState } from "react";
+import { useEffect } from "react";
+
+function toggleStickyRow(rowId: string) {
+  const element = document.getElementById(rowId);
+
+  element?.classList.toggle("sticky");
+  updateStickyRowsPositions();
+}
+
+function updateStickyRowsPositions() {
+  const stickyTrElements = document.querySelectorAll(
+    "tr.sticky",
+  ) as NodeListOf<HTMLElement>;
+
+  let cumulativeTrHeight = 0;
+  stickyTrElements.forEach((el) => {
+    el.style.top = `${cumulativeTrHeight}px`;
+    cumulativeTrHeight += el.offsetHeight;
+  });
+
+  const stickyTdElements = document.querySelectorAll(
+    `tr.sticky > td.sticky`,
+  ) as NodeListOf<HTMLElement>;
+
+  let cumulativeTdHeight = 0;
+  stickyTdElements.forEach((el) => {
+    el.style.top = `${cumulativeTdHeight}px`;
+    cumulativeTdHeight += el.offsetHeight;
+  });
+}
+
+function toggleStickyColumn(header: string) {
+  const th = document.getElementById(`th-${header}`);
+  th?.classList.toggle("sticky");
+
+  const tds = document.querySelectorAll(`[data-id=td-${header}]`);
+  tds?.forEach((td) => {
+    td.classList.toggle("sticky");
+    td.classList.toggle("bg-blue-100");
+  });
+
+  updateStickyColumnsPositions();
+}
+
+function updateStickyColumnsPositions() {
+  const stickyThElements = document.querySelectorAll(
+    "th.sticky",
+  ) as NodeListOf<HTMLElement>;
+
+  let cumulativeThWidth = 0;
+  stickyThElements.forEach((el) => {
+    el.style.left = `${cumulativeThWidth}px`;
+    cumulativeThWidth += el.offsetWidth;
+  });
+
+  const stickyTdElements = document.querySelectorAll(
+    `td.sticky`,
+  ) as NodeListOf<HTMLElement>;
+
+  const amountOfColumns = stickyThElements.length;
+  console.log("amountOfColumns", amountOfColumns);
+
+  let cumulativeTdWidth = 0;
+  stickyTdElements.forEach((el, index) => {
+    el.style.left = `${cumulativeTdWidth}px`;
+
+    const remainder = (index + 1) % amountOfColumns;
+    console.log("remainder", remainder);
+
+    if (remainder === 0) {
+      cumulativeTdWidth = 0;
+      return;
+    }
+
+    cumulativeTdWidth += el.offsetWidth;
+  });
+}
+
 function App() {
   const headers = Object.keys(races[0]) as (keyof Race)[];
-  const [pinnedHeader, setPinnedHeader] = useState<keyof Race | undefined>();
-  const [pinnedRow, setPinnedRow] = useState<string | undefined>();
+
+  useEffect(() => {
+    window.addEventListener("resize", updateStickyRowsPositions);
+
+    return () => {
+      window.removeEventListener("resize", updateStickyRowsPositions);
+    };
+  }, []);
 
   return (
     <>
@@ -14,28 +97,16 @@ function App() {
               {headers.map((header) => (
                 <th
                   key={header}
-                  className={`
-                  border border-slate-300 
-                  ${header === pinnedHeader && "sticky left-0 right-0 z-10 bg-blue-100 shadow-sm"}
-                  `}
+                  id={`th-${header}`}
+                  className={`border border-slate-300 has-[:checked]:bg-blue-100`}
                 >
-                  <label htmlFor={header} className="p-3">
+                  <label htmlFor={`checkbox-${header}`} className="p-3">
                     <input
                       type="checkbox"
-                      className="mr-2"
-                      id={header}
-                      onChange={(e) => {
-                        if (header !== pinnedHeader) {
-                          document.getElementById(pinnedHeader || "")?.click();
-                        }
-
-                        if (e.target.checked) {
-                          setPinnedHeader(header);
-                          return;
-                        }
-
-                        setPinnedHeader(undefined);
-                      }}
+                      data-id={`checkbox-${header}`}
+                      className="peer mr-2"
+                      id={`checkbox-${header}`}
+                      onChange={() => toggleStickyColumn(header)}
                     />
                     {header}
                   </label>
@@ -47,39 +118,34 @@ function App() {
             {races.map((race) => (
               <tr
                 key={race.Driver}
-                className={race.Driver === pinnedRow ? "sticky top-0" : ""}
+                id={`tr-${race.Driver}`}
+                className="has-[:checked]:bg-blue-100"
               >
                 {headers.map((header) => (
                   <td
+                    data-id={`td-${header}`}
                     key={header}
                     className={`
-                    border border-slate-300 p-2 
+                     border border-slate-300 p-2 
                     ${header === "Driver" ? "text-left" : "text-right"}
-                    ${header === pinnedHeader && "sticky left-0 right-0 z-20 bg-blue-100 shadow-sm"}
-                    ${race.Driver === pinnedRow && "bg-blue-100 shadow-sm"}
                     `}
                   >
                     {header === "Driver" && (
                       <>
-                        <input
-                          type="checkbox"
-                          id={race.Driver}
-                          onChange={(e) => {
-                            if (race.Driver !== pinnedRow) {
-                              document.getElementById(pinnedRow || "")?.click();
+                        <label htmlFor={`checkbox-${race.Driver}`}>
+                          <input
+                            type="checkbox"
+                            id={`checkbox-${race.Driver}`}
+                            onChange={() =>
+                              toggleStickyRow(`tr-${race.Driver}`)
                             }
-
-                            if (e.target.checked) {
-                              setPinnedRow(race.Driver);
-                              return;
-                            }
-
-                            setPinnedRow(undefined);
-                          }}
-                        />{" "}
+                          />{" "}
+                          {race[header]}
+                        </label>
                       </>
                     )}
-                    {race[header]}
+
+                    {header !== "Driver" && <>{race[header]}</>}
                   </td>
                 ))}
               </tr>
